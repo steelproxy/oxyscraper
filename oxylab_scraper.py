@@ -18,6 +18,7 @@ EXAMPLE_TEXT = """example:
  python3 ./oxylab_scraper.py --verbose --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES] --start [START] --query [QUERY] --phones
  """
 
+
 def parse_arguments():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
@@ -29,15 +30,22 @@ def parse_arguments():
     parser.add_argument("--user", help="OxyLabs API username", type=str)
     parser.add_argument("--password", help="OxyLabs API password", type=str)
     parser.add_argument("--runs", help="maximum times to iterate searches", type=int)
-    parser.add_argument("--pages", help="number of pages to search per iteration", type=int)
+    parser.add_argument(
+        "--pages", help="number of pages to search per iteration", type=int
+    )
     parser.add_argument("--start", help="page to start at", type=int)
     parser.add_argument("--query", help="query to search google for", type=str)
-    parser.add_argument("--phones", help="search for phone numbers instead of emails", action="store_true")
+    parser.add_argument(
+        "--phones",
+        help="search for phone numbers instead of emails",
+        action="store_true",
+    )
     parser.add_argument("--output", help="file to output results to")
     parser.add_argument(
         "--verbose", action="store_true", help="if enabled will output more verbosely"
     )
     return parser.parse_args()
+
 
 def get_user_input(prompt, default=None):
     """Get input from user with optional default value."""
@@ -45,14 +53,18 @@ def get_user_input(prompt, default=None):
         return input(f"{prompt} [{default}]: ") or default
     return input(f"{prompt}: ")
 
+
 def handle_interrupt(sig, frame):
     """Handle SIGINT signal."""
     print("\nCaught SIGINT, ending search.")
-    print(f"Some runs completed. Found {emails_found} emails and {phones_found} phones.")
+    print(
+        f"Some runs completed. Found {emails_found} emails and {phones_found} phones."
+    )
     if args.output and not output_file.closed:
         print(f"Outputted results to: {args.output}")
         output_file.close()
     sys.exit(0)
+
 
 def search_emails(response, output_file):
     """Search for emails in the response and output to file."""
@@ -67,9 +79,13 @@ def search_emails(response, output_file):
             unique_emails.add(email)
     return len(unique_emails)
 
+
 def search_phones(response, output_file):
     """Search for phone numbers in the response and output to file."""
-    phones = re.findall(r'\b(?:\+\d{1,2}\s?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}\b', str(response.json()))
+    phones = re.findall(
+        r"\b(?:\+\d{1,2}\s?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}\b",
+        str(response.json()),
+    )
     # Set to store unique phone numbers
     unique_phones = set()
     for phone in phones:
@@ -80,6 +96,7 @@ def search_phones(response, output_file):
             unique_phones.add(phone)
     return len(unique_phones)
 
+
 def run_scraper(user, password, runs, pages, start, query, output_file, args):
     """Main function to execute the scraper."""
     global emails_found, phones_found
@@ -87,7 +104,9 @@ def run_scraper(user, password, runs, pages, start, query, output_file, args):
 
     for run in range(1, runs + 1):
         if args.verbose:
-            print(f"Running request with query: '{query}', starting page: {start}, run: {run}...")
+            print(
+                f"Running request with query: '{query}', starting page: {start}, run: {run}..."
+            )
 
         payload = {
             "source": "google_search",
@@ -103,40 +122,43 @@ def run_scraper(user, password, runs, pages, start, query, output_file, args):
                 {"key": "results_language", "value": "en"},
             ],
         }
-        
+
         response = requests.post(
             "https://realtime.oxylabs.io/v1/queries",
             auth=(user, password),
             json=payload,
         )
-        
+
         if not response.ok:
             print("ERROR! Bad response received.")
             print(response.text)
             sys.exit(1)
-        
+
         if not args.phones:
             emails_found += search_emails(response, output_file)
         else:
             phones_found += search_phones(response, output_file)
-        
+
         start = int(start) + pages
-    
+
     print(f"Runs completed. Found {emails_found} emails and {phones_found} phones.")
     if args.output and not output_file.closed:
         print(f"Outputted results to: {args.output}")
         output_file.close()
+
 
 def main():
     """Main function."""
     global emails_found, phones_found, args, output_file
     args = parse_arguments()
     signal.signal(signal.SIGINT, handle_interrupt)
-    
+
     user = args.user or get_user_input("Enter OxyLabs API username")
     password = args.password or get_user_input("Enter OxyLabs API password")
     runs = args.runs or int(get_user_input("Enter number of runs"))
-    pages = args.pages or int(get_user_input("Enter number of pages to search each run"))
+    pages = args.pages or int(
+        get_user_input("Enter number of pages to search each run")
+    )
     start = args.start or int(get_user_input("Enter page to start at", default=1))
     query = args.query or get_user_input("Enter query to search for")
 
@@ -154,6 +176,7 @@ def main():
     phones_found = 0
 
     run_scraper(user, password, runs, pages, start, query, output_file, args)
+
 
 if __name__ == "__main__":
     main()
