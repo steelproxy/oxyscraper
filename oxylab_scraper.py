@@ -5,9 +5,8 @@ from pprint import pprint
 import signal
 import sys
 
-
-# set up arguments / help page
-example_text = """example:
+# Example text for argument parser
+EXAMPLE_TEXT = """example:
  python3 ./oxylab_scraper.py
  python3 ./oxylab_scraper.py --verbose 
  python3 ./oxylab_scraper.py --verbose --output [OUTPUT]
@@ -18,147 +17,143 @@ example_text = """example:
  python3 ./oxylab_scraper.py --verbose --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES] --start [START] --query [QUERY]
  python3 ./oxylab_scraper.py --verbose --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES] --start [START] --query [QUERY] --phones
  """
-parser = argparse.ArgumentParser()
-parser = argparse.ArgumentParser(
-    prog="oxylabs_scraper",
-    description="OxyLabs Serp Scraper for Emails",
-    epilog=example_text,
-    formatter_class=argparse.RawDescriptionHelpFormatter,
-)
-parser.add_argument("--user", help="OxyLabs API username", type=str)
-parser.add_argument("--password", help="OxyLabs API password", type=str)
-parser.add_argument("--runs", help="maximum times to iterate searches", type=int)
-parser.add_argument("--pages", help="number of pages to search per iteration", type=int)
-parser.add_argument("--start", help="page to start at", type=int)
-parser.add_argument("--query", help="query to search google for", type=str)
-parser.add_argument("--phones", help="search for phone numbers instead of emails", action="store_true")
-parser.add_argument("--output", help="file to output results to")
-parser.add_argument(
-    "--verbose", action="store_true", help="if enabled will output more verbosely"
-)
-args = parser.parse_args()
 
-# process the arguments
-if not args.user:
-    user = input("Enter OxyLabs API username: ")
-else:
-    user = args.user
+def parse_arguments():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        prog="oxylabs_scraper",
+        description="OxyLabs Serp Scraper for Emails",
+        epilog=EXAMPLE_TEXT,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("--user", help="OxyLabs API username", type=str)
+    parser.add_argument("--password", help="OxyLabs API password", type=str)
+    parser.add_argument("--runs", help="maximum times to iterate searches", type=int)
+    parser.add_argument("--pages", help="number of pages to search per iteration", type=int)
+    parser.add_argument("--start", help="page to start at", type=int)
+    parser.add_argument("--query", help="query to search google for", type=str)
+    parser.add_argument("--phones", help="search for phone numbers instead of emails", action="store_true")
+    parser.add_argument("--output", help="file to output results to")
+    parser.add_argument(
+        "--verbose", action="store_true", help="if enabled will output more verbosely"
+    )
+    return parser.parse_args()
 
-if not args.password:
-    password = input("Enter OxyLabs API password: ")
-else:
-    password = args.password
+def get_user_input(prompt, default=None):
+    """Get input from user with optional default value."""
+    if default is not None:
+        return input(f"{prompt} [{default}]: ") or default
+    return input(f"{prompt}: ")
 
-if not args.runs:
-    runs = int(input("Enter number of runs: "))
-else:
-    runs = args.runs
-
-if not args.pages:
-    pages = input("Enter number of pages to search each run: ")
-else:
-    pages = args.pages
-
-if not args.start:
-    starting_page = "1"
-else:
-    starting_page = args.start
-
-if not args.query:
-    query = input("Enter query to search for: ")
-else:
-    query = args.query
-
-if args.output:
-    output_file = open(args.output, "a")
-    if output_file.closed:
-        print("output file unable to be opened.")
-
-# Structure payload.
-payload = {
-    "source": "google_search",
-    "user_agent_type": "desktop_chrome",
-    "parse": True,
-    "geo_location": "Ohio, United States",
-    "locale": "en-us",
-    "query": query,
-    "start_page": str(starting_page),
-    "pages": str(pages),
-    "context": [
-        {"key": "filter", "value": 1},
-        {"key": "results_language", "value": "en"},
-    ],
-}
-
-if args.verbose:
-    print("request body: ")
-    print(str(payload))
-
-
-print("starting requests...")
-
-run = 1
-emails_found = 0
-phones_found = 0
-
-
-def signal_handler(sig, frame):
-    print("Caught SIGINT, ending search.")
-    print("some runs completed. found " + str(emails_found) + " emails and " + str(phones_found) + " phones.")
-    if args.output:
-        print("outputted results to: " + str(args.output))
+def handle_interrupt(sig, frame):
+    """Handle SIGINT signal."""
+    print("\nCaught SIGINT, ending search.")
+    print(f"Some runs completed. Found {emails_found} emails and {phones_found} phones.")
+    if args.output and not output_file.closed:
+        print(f"Outputted results to: {args.output}")
         output_file.close()
     sys.exit(0)
 
-
-signal.signal(signal.SIGINT, signal_handler)
-while run <= runs:
-    if args.verbose:
-        print(
-            "running request with query:'"
-            + query
-            + "', starting page:"
-            + payload["start_page"]
-            + " run: "
-            + str(run)
-            + " ..."
-        )
-    # Get response.
-    response = requests.request(
-        "POST",
-        "https://realtime.oxylabs.io/v1/queries",
-        auth=(user, password),  # Your credentials go here
-        json=payload,
-    )
-    if not response.ok:
-        print("ERROR! bad response recieved.")
-        print(response.text)
-        quit(1)
-    # Instead of response with job status and results url, this will return the
-    # JSON response with results.
-    if not args.phones:
-        emails = re.findall(r"[\w.+-]+@[\w-]+\.[\w.-]+", str(response.json()))
-        for email in emails:
-            emails_found += 1
+def search_emails(response, output_file):
+    """Search for emails in the response and output to file."""
+    emails = re.findall(r"[\w.+-]+@[\w-]+\.[\w.-]+", str(response.json()))
+    # Set to store unique email addresses
+    unique_emails = set()
+    for email in emails:
+        if email not in unique_emails:
             pprint(str(email))
-            if args.output:
+            if output_file:
                 output_file.write(str(email) + "\n")
+            unique_emails.add(email)
+    return len(unique_emails)
 
-    if args.phones:
-        phone_pattern = re.compile(r'\b(?:\+\d{1,2}\s?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}\b')
-        phones = phone_pattern.findall(str(response.json()))
-        for phone in phones:
-            phones_found += 1
+def search_phones(response, output_file):
+    """Search for phone numbers in the response and output to file."""
+    phones = re.findall(r'\b(?:\+\d{1,2}\s?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}\b', str(response.json()))
+    # Set to store unique phone numbers
+    unique_phones = set()
+    for phone in phones:
+        if phone not in unique_phones:
             pprint(str(phone))
-            if args.output:
-                output_file.write(str(phones) + "\n")
+            if output_file:
+                output_file.write(str(phone) + "\n")
+            unique_phones.add(phone)
+    return len(unique_phones)
 
-    new_start = int(payload["start_page"])
-    new_start += int(pages)
-    payload["start_page"] = str(new_start)
-    run += 1
+def run_scraper(user, password, runs, pages, start, query, output_file, args):
+    """Main function to execute the scraper."""
+    global emails_found, phones_found
+    print("Starting requests...")
 
-print("some runs completed. found " + str(emails_found) + " emails and " + str(phones_found) + " phones.")
-if args.output:
-    print("outputted results to: " + str(args.output))
-    output_file.close()
+    for run in range(1, runs + 1):
+        if args.verbose:
+            print(f"Running request with query: '{query}', starting page: {start}, run: {run}...")
+
+        payload = {
+            "source": "google_search",
+            "user_agent_type": "desktop_chrome",
+            "parse": True,
+            "geo_location": "Ohio, United States",
+            "locale": "en-us",
+            "query": query,
+            "start_page": str(start),
+            "pages": str(pages),
+            "context": [
+                {"key": "filter", "value": 1},
+                {"key": "results_language", "value": "en"},
+            ],
+        }
+        
+        response = requests.post(
+            "https://realtime.oxylabs.io/v1/queries",
+            auth=(user, password),
+            json=payload,
+        )
+        
+        if not response.ok:
+            print("ERROR! Bad response received.")
+            print(response.text)
+            sys.exit(1)
+        
+        if not args.phones:
+            emails_found += search_emails(response, output_file)
+        else:
+            phones_found += search_phones(response, output_file)
+        
+        start = int(start) + pages
+    
+    print(f"Runs completed. Found {emails_found} emails and {phones_found} phones.")
+    if args.output and not output_file.closed:
+        print(f"Outputted results to: {args.output}")
+        output_file.close()
+
+def main():
+    """Main function."""
+    global emails_found, phones_found, args, output_file
+    args = parse_arguments()
+    signal.signal(signal.SIGINT, handle_interrupt)
+    
+    user = args.user or get_user_input("Enter OxyLabs API username")
+    password = args.password or get_user_input("Enter OxyLabs API password")
+    runs = args.runs or int(get_user_input("Enter number of runs"))
+    pages = args.pages or int(get_user_input("Enter number of pages to search each run"))
+    start = args.start or int(get_user_input("Enter page to start at", default=1))
+    query = args.query or get_user_input("Enter query to search for")
+
+    output_file = None
+    if args.output:
+        try:
+            output_file = open(args.output, "a")
+            if output_file.closed:
+                print("Output file unable to be opened.")
+        except IOError:
+            print("Error opening output file.")
+            sys.exit(1)
+
+    emails_found = 0
+    phones_found = 0
+
+    run_scraper(user, password, runs, pages, start, query, output_file, args)
+
+if __name__ == "__main__":
+    main()
