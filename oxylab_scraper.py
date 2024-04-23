@@ -16,6 +16,7 @@ example_text = """example:
  python3 ./oxylab_scraper.py --verbose --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES]
  python3 ./oxylab_scraper.py --verbose --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES] --start [START]
  python3 ./oxylab_scraper.py --verbose --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES] --start [START] --query [QUERY]
+ python3 ./oxylab_scraper.py --verbose --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES] --start [START] --query [QUERY] --phones
  """
 parser = argparse.ArgumentParser()
 parser = argparse.ArgumentParser(
@@ -30,6 +31,7 @@ parser.add_argument("--runs", help="maximum times to iterate searches", type=int
 parser.add_argument("--pages", help="number of pages to search per iteration", type=int)
 parser.add_argument("--start", help="page to start at", type=int)
 parser.add_argument("--query", help="query to search google for", type=str)
+parser.add_argument("--phones", help="search for phone numbers instead of emails", action="store_true")
 parser.add_argument("--output", help="file to output results to")
 parser.add_argument(
     "--verbose", action="store_true", help="if enabled will output more verbosely"
@@ -97,11 +99,12 @@ print("starting requests...")
 
 run = 1
 emails_found = 0
+phones_found = 0
 
 
 def signal_handler(sig, frame):
     print("Caught SIGINT, ending search.")
-    print("some runs completed. found " + str(emails_found) + " emails.")
+    print("some runs completed. found " + str(emails_found) + " emails and " + str(phones_found) + " phones.")
     if args.output:
         print("outputted results to: " + str(args.output))
         output_file.close()
@@ -127,21 +130,35 @@ while run <= runs:
         auth=(user, password),  # Your credentials go here
         json=payload,
     )
+    if not response.ok:
+        print("ERROR! bad response recieved.")
+        print(response.text)
+        quit(1)
     # Instead of response with job status and results url, this will return the
     # JSON response with results.
-    emails = re.findall(r"[\w.+-]+@[\w-]+\.[\w.-]+", str(response.json()))
-    for email in emails:
-        emails_found += 1
-        pprint(str(email))
-        if args.output:
-            output_file.write(str(email) + "\n")
+    if not args.phones:
+        emails = re.findall(r"[\w.+-]+@[\w-]+\.[\w.-]+", str(response.json()))
+        for email in emails:
+            emails_found += 1
+            pprint(str(email))
+            if args.output:
+                output_file.write(str(email) + "\n")
+
+    if args.phones:
+        phone_pattern = re.compile(r'\b(?:\+\d{1,2}\s?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}\b')
+        phones = phone_pattern.findall(str(response.json()))
+        for phone in phones:
+            phones_found += 1
+            pprint(str(phone))
+            if args.output:
+                output_file.write(str(phones) + "\n")
 
     new_start = int(payload["start_page"])
     new_start += int(pages)
     payload["start_page"] = str(new_start)
     run += 1
 
-print("runs completed. found " + str(emails_found) + " emails.")
+print("some runs completed. found " + str(emails_found) + " emails and " + str(phones_found) + " phones.")
 if args.output:
     print("outputted results to: " + str(args.output))
     output_file.close()
