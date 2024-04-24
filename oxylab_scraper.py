@@ -190,14 +190,15 @@ def main():
         output_file_name = args.output or get_user_input(
             "Enter file to output to (optional)", default=None
         )
-        try:
-            output_file = open(output_file_name, "a")
-            if output_file.closed:
-                print("Output file unable to be opened.")
+        if output_file_name:
+            try:
+                output_file = open(output_file_name, "a")
+                if output_file.closed:
+                    print("Output file unable to be opened.")
+                    sys.exit(1)
+            except IOError:
+                print("Error opening output file.")
                 sys.exit(1)
-        except IOError:
-            print("Error opening output file.")
-            sys.exit(1)
 
     emails_found = 0
     phones_found = 0
