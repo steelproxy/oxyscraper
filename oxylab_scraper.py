@@ -5,6 +5,10 @@ from pprint import pprint
 import signal
 import sys
 
+SCRIPT_URL = (
+    "https://raw.githubusercontent.com/steelproxy/oxyscraper/main/oxylab_scraper.py"
+)
+
 # Example text for argument parser
 EXAMPLE_TEXT = """example:
  python3 ./oxylab_scraper.py
@@ -57,9 +61,6 @@ def get_user_input(prompt, default=None):
 def handle_interrupt(sig, frame):
     """Handle SIGINT signal."""
     print("\nCaught SIGINT, ending search.")
-    print(
-        f"Some runs completed. Found {emails_found} emails and {phones_found} phones."
-    )
     if args.output and not output_file.closed:
         print(f"Outputted results to: {args.output}")
         output_file.close()
@@ -148,11 +149,28 @@ def run_scraper(user, password, runs, pages, start, query, output_file, args):
         output_file.close()
 
 
+def update_script_if_available():
+    """Check for updates and update the script if available."""
+    print("Checking for updates...")
+    response = requests.get(SCRIPT_URL)
+    if response.status_code == 200:
+        with open(__file__, "r") as f:
+            current_script = f.read()
+            if current_script != response.text:
+                with open(__file__, "w") as f:
+                    f.write(response.text)
+                print("Script updated successfully.")
+    else:
+        print("Failed to check for updates.")
+
+
 def main():
     """Main function."""
     global emails_found, phones_found, args, output_file
     args = parse_arguments()
     signal.signal(signal.SIGINT, handle_interrupt)
+
+    update_script_if_available()
 
     user = args.user or get_user_input("Enter OxyLabs API username")
     password = args.password or get_user_input("Enter OxyLabs API password")
