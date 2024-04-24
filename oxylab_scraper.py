@@ -72,6 +72,7 @@ def search_emails(response, output_file):
     # Set to store unique email addresses
     unique_emails = set()
     for email in emails:
+        email = email.rstrip(".")
         if email not in unique_emails:
             pprint(str(email))
             if output_file:
