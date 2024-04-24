@@ -19,7 +19,7 @@ EXAMPLE_TEXT = """example:
  python3 ./oxylab_scraper.py --verbose --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES]
  python3 ./oxylab_scraper.py --verbose --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES] --start [START]
  python3 ./oxylab_scraper.py --verbose --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES] --start [START] --query [QUERY]
- python3 ./oxylab_scraper.py --verbose --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES] --start [START] --query [QUERY] --phones
+ python3 ./oxylab_scraper.py --verbose --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES] --start [START] --query [QUERY] --phones [YES/NO]
  """
 
 output_file = None
@@ -44,7 +44,7 @@ def parse_arguments():
     parser.add_argument(
         "--phones",
         help="search for phone numbers instead of emails",
-        action="store_true",
+        type=str,
     )
     parser.add_argument(
         "--output", help='file to output results to use "none" for no file output'
@@ -104,7 +104,7 @@ def search_phones(response, output_file):
     return len(unique_phones)
 
 
-def run_scraper(user, password, runs, pages, start, query, output_file, args):
+def run_scraper(user, password, runs, pages, start, query, phones, output_file, args):
     """Main function to execute the scraper."""
     global emails_found, phones_found
     print("Starting requests...")
@@ -141,7 +141,7 @@ def run_scraper(user, password, runs, pages, start, query, output_file, args):
             print(response.text)
             sys.exit(1)
 
-        if not args.phones:
+        if not phones:
             emails_found += search_emails(response, output_file)
         else:
             phones_found += search_phones(response, output_file)
@@ -175,16 +175,27 @@ def main():
     args = parse_arguments()
     signal.signal(signal.SIGINT, handle_interrupt)
 
-    update_script_if_available()
+    #update_script_if_available()
 
     user = args.user or get_user_input("Enter OxyLabs API username")
     password = args.password or get_user_input("Enter OxyLabs API password")
-    runs = args.runs or int(get_user_input("Enter number of runs"))
+    runs = args.runs or int(get_user_input("Enter number of runs", default=1))
     pages = args.pages or int(
-        get_user_input("Enter number of pages to search each run")
+        get_user_input("Enter number of pages to search each run", default=1)
     )
     start = args.start or int(get_user_input("Enter page to start at", default=1))
     query = args.query or get_user_input("Enter query to search for")
+
+    if args.phones == "no":
+        do_phones = bool(False)
+    else:
+        if args.phones == "yes":
+            do_phones = bool(True)
+        if not args.phones:
+            if str(get_user_input("Search for phones? (yes/no)")) == "yes":
+                do_phones = bool(True)
+            else:
+                do_phones = bool(False)
 
     if args.output != "none":
         output_file_name = args.output or get_user_input(
@@ -203,7 +214,7 @@ def main():
     emails_found = 0
     phones_found = 0
 
-    run_scraper(user, password, runs, pages, start, query, output_file, args)
+    run_scraper(user, password, runs, pages, start, query, do_phones, output_file, args)
 
 
 if __name__ == "__main__":
