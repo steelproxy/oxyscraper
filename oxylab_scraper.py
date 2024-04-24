@@ -173,7 +173,7 @@ def main():
     args = parse_arguments()
     signal.signal(signal.SIGINT, handle_interrupt)
 
-    # update_script_if_available()
+    update_script_if_available()
 
     user = args.user or get_user_input("Enter OxyLabs API username")
     password = args.password or get_user_input("Enter OxyLabs API password")
