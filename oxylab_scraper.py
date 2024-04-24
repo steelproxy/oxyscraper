@@ -119,7 +119,7 @@ def run_scraper(user, password, runs, pages, start, query, phones, output_file, 
         if phones == "no":
             output_file.write("Email, URL\n")
         else:
-            output_file.write("Phones/Emails, URL\n")
+            output_file.write("Phones, URL\n")
 
     for run in range(1, runs + 1):
         if args.verbose:
@@ -190,7 +190,7 @@ def main():
     args = parse_arguments()
     signal.signal(signal.SIGINT, handle_interrupt)
 
-    #update_script_if_available()
+    update_script_if_available()
 
     user = args.user or get_user_input("Enter OxyLabs API username")
     password = args.password or get_user_input("Enter OxyLabs API password")
