@@ -116,10 +116,10 @@ def run_scraper(user, password, runs, pages, start, query, phones, output_file, 
 
     # Write Header
     if output_file:
-        if not phones:
+        if phones == "no":
             output_file.write("Email, URL\n")
         else:
-            output_file.write("Phone, URL\n")
+            output_file.write("Phones/Emails, URL\n")
 
     for run in range(1, runs + 1):
         if args.verbose:
@@ -156,10 +156,10 @@ def run_scraper(user, password, runs, pages, start, query, phones, output_file, 
             print(response.text)
             sys.exit(1)
 
-        if not phones:
+        if phones != "yes" or phones == "both":
             emails_found += search_emails(response, output_file)
-        else:
-            phones_found += search_phones(response, output_file)
+        if phones == "yes" or phones == "both":
+                phones_found += search_phones(response, output_file)
 
         start = int(start) + pages
 
@@ -201,16 +201,12 @@ def main():
     start = args.start or int(get_user_input("Enter page to start at", default=1))
     query = args.query or get_user_input("Enter query to search for")
 
-    if args.phones == "no":
-        do_phones = bool(False)
+    if args.phones == "no" or args.phones == "yes" or args.phones == "both":
+        do_phones = args.phones
     else:
-        if args.phones == "yes":
-            do_phones = bool(True)
-        if not args.phones:
-            if str(get_user_input("Search for phones? (yes/no)")) == "yes":
-                do_phones = bool(True)
-            else:
-                do_phones = bool(False)
+        do_phones = get_user_input("Search for phones (yes/no/both)")
+        if not (do_phones == "no" or do_phones == "yes" or do_phones == "both"):
+                do_phones = "no"
 
     if args.output != "none":
         output_file_name = args.output or get_user_input(
