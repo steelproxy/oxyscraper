@@ -22,6 +22,8 @@ EXAMPLE_TEXT = """example:
  python3 ./oxylab_scraper.py --verbose --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES] --start [START] --query [QUERY] --phones
  """
 
+output_file = None
+
 
 def parse_arguments():
     """Parse command line arguments."""
@@ -61,8 +63,8 @@ def get_user_input(prompt, default=None):
 def handle_interrupt(sig, frame):
     """Handle SIGINT signal."""
     print("\nCaught SIGINT, ending search.")
-    if args.output and not output_file.closed:
-        print(f"Outputted results to: {args.output}")
+    if output_file and not output_file.closed:
+        print(f"Outputted results to: {output_file.name}")
         output_file.close()
     sys.exit(0)
 
@@ -145,8 +147,8 @@ def run_scraper(user, password, runs, pages, start, query, output_file, args):
         start = int(start) + pages
 
     print(f"Runs completed. Found {emails_found} emails and {phones_found} phones.")
-    if args.output and not output_file.closed:
-        print(f"Outputted results to: {args.output}")
+    if output_file and not output_file.closed:
+        print(f"Outputted results to: {output_file.name}")
         output_file.close()
 
 
@@ -171,7 +173,7 @@ def main():
     args = parse_arguments()
     signal.signal(signal.SIGINT, handle_interrupt)
 
-    update_script_if_available()
+    # update_script_if_available()
 
     user = args.user or get_user_input("Enter OxyLabs API username")
     password = args.password or get_user_input("Enter OxyLabs API password")
@@ -181,11 +183,16 @@ def main():
     )
     start = args.start or int(get_user_input("Enter page to start at", default=1))
     query = args.query or get_user_input("Enter query to search for")
+    if not args.output:
+        output_file_name = get_user_input(
+            "Enter file to output to (optional)", default=None
+        )
+    else:
+        output_file_name = args.output
 
-    output_file = None
-    if args.output:
+    if output_file_name:
         try:
-            output_file = open(args.output, "a")
+            output_file = open(output_file_name, "a")
             if output_file.closed:
                 print("Output file unable to be opened.")
         except IOError:
