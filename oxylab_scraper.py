@@ -77,7 +77,7 @@ def search_emails(response, output_file):
         if email not in unique_emails:
             pprint(str(email))
             if output_file:
-                output_file.write(str(email) + "\n")
+                output_file.write(str(email) + ",")
             unique_emails.add(email)
     return len(unique_emails)
 
@@ -94,7 +94,7 @@ def search_phones(response, output_file):
         if phone not in unique_phones:
             pprint(str(phone))
             if output_file:
-                output_file.write(str(phone) + "\n")
+                output_file.write(str(phone) + ",")
             unique_phones.add(phone)
     return len(unique_phones)
 
