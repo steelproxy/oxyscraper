@@ -46,7 +46,9 @@ def parse_arguments():
         help="search for phone numbers instead of emails",
         action="store_true",
     )
-    parser.add_argument("--output", help="file to output results to")
+    parser.add_argument(
+        "--output", help='file to output results to use "none" for no file output'
+    )
     parser.add_argument(
         "--verbose", action="store_true", help="if enabled will output more verbosely"
     )
@@ -190,7 +192,7 @@ def main():
     else:
         output_file_name = args.output
 
-    if output_file_name:
+    if output_file_name != "none":
         try:
             output_file = open(output_file_name, "a")
             if output_file.closed:
