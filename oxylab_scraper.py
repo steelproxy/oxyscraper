@@ -74,11 +74,12 @@ def search_emails(response, output_file):
     unique_emails = set()
     for email in emails:
         email = email.rstrip(".")
-        if email not in unique_emails:
-            pprint(str(email))
-            if output_file:
-                output_file.write(str(email) + ",")
-            unique_emails.add(email)
+        if "postmaster" not in email.lower():
+            if email not in unique_emails:
+                pprint(str(email))
+                if output_file:
+                    output_file.write(str(email) + ",")
+                unique_emails.add(email)
     return len(unique_emails)
 
 
