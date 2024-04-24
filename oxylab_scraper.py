@@ -93,19 +93,20 @@ def search_emails(response, output_file):
 
 def search_phones(response, output_file):
     """Search for phone numbers in the response and output to file."""
-    phones = re.findall(
-        r"\b(?:\+\d{1,2}\s?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}\b",
-        str(response.json()),
-    )
-    # Set to store unique phone numbers
     unique_phones = set()
-    for phone in phones:
-        if phone not in unique_phones:
-            pprint(str(phone))
-            if output_file:
-                output_file.write(str(phone) + ",")
-            unique_phones.add(phone)
+    for page in response.json()['results']:
+        for results in page.get('content', {}).get('results', {}).get('organic', {}):
+            phones = re.findall(
+            r"\b(?:\+\d{1,2}\s?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}\b",
+            str(results.get('desc', {})),)
+            for phone in phones:
+                if phone not in unique_phones:
+                    pprint("Phone found: " + str(phone) + ", URL: " + str(results.get('url', {})))
+                    if output_file:
+                        output_file.write(str(phone) + "," + str(results.get('url', {})) + "\n")
+                    unique_phones.add(phone)
     return len(unique_phones)
+    
 
 
 def run_scraper(user, password, runs, pages, start, query, phones, output_file, args):
@@ -115,7 +116,10 @@ def run_scraper(user, password, runs, pages, start, query, phones, output_file, 
 
     # Write Header
     if output_file:
+        if not phones:
             output_file.write("Email, URL\n")
+        else:
+            output_file.write("Phone, URL\n")
 
     for run in range(1, runs + 1):
         if args.verbose:
@@ -186,7 +190,7 @@ def main():
     args = parse_arguments()
     signal.signal(signal.SIGINT, handle_interrupt)
 
-    update_script_if_available()
+    #update_script_if_available()
 
     user = args.user or get_user_input("Enter OxyLabs API username")
     password = args.password or get_user_input("Enter OxyLabs API password")
