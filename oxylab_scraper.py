@@ -4,6 +4,7 @@ import re
 from pprint import pprint
 import signal
 import sys
+import json
 
 SCRIPT_URL = (
     "https://raw.githubusercontent.com/steelproxy/oxyscraper/main/oxylab_scraper.py"
@@ -73,19 +74,22 @@ def handle_interrupt(sig, frame):
 
 def search_emails(response, output_file):
     """Search for emails in the response and output to file."""
-    emails = re.findall(r"[\w.+-]+@[\w-]+\.[\w.-]+", str(response.json()))
     # Set to store unique email addresses
     unique_emails = set()
-    for email in emails:
-        email = email.rstrip(".")
-        if "postmaster" not in email.lower():
-            if email not in unique_emails:
-                pprint(str(email))
-                if output_file:
-                    output_file.write(str(email) + ",")
-                unique_emails.add(email)
-    return len(unique_emails)
 
+    for page in response.json()['results']:
+        for results in page.get('content', {}).get('results', {}).get('organic', {}):
+            emails = re.findall(r"[\w.+-]+@[\w-]+\.[\w.-]+", str(results.get('desc', {})))
+            for email in emails:
+                email = email.rstrip(".")
+                if "postmaster" not in email.lower():
+                    if email not in unique_emails:
+                        pprint("Email found: " + str(email) + ", URL: " + str(results.get('url', {})))
+                        if output_file:
+                            output_file.write(str(email) + "," + str(results.get('url', {})) + "\n")
+                        unique_emails.add(email)
+    
+    return len(unique_emails)
 
 def search_phones(response, output_file):
     """Search for phone numbers in the response and output to file."""
@@ -108,6 +112,10 @@ def run_scraper(user, password, runs, pages, start, query, phones, output_file, 
     """Main function to execute the scraper."""
     global emails_found, phones_found
     print("Starting requests...")
+
+    # Write Header
+    if output_file:
+            output_file.write("Email, URL\n")
 
     for run in range(1, runs + 1):
         if args.verbose:
@@ -135,6 +143,9 @@ def run_scraper(user, password, runs, pages, start, query, phones, output_file, 
             auth=(user, password),
             json=payload,
         )
+
+        #pprint(str(response.json()))
+        #input("continue")
 
         if not response.ok:
             print("ERROR! Bad response received.")
