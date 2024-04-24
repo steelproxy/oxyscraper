@@ -82,7 +82,7 @@ def search_emails(response, output_file):
             emails = re.findall(r"[\w.+-]+@[\w-]+\.[\w.-]+", str(results.get('desc', {})))
             for email in emails:
                 email = email.rstrip(".")
-                if "postmaster" not in email.lower():
+                if ("postmaster" not in email.lower()) and ("webmaster" not in email.lower()):
                     if email not in unique_emails:
                         pprint("Email found: " + str(email) + ", URL: " + str(results.get('url', {})))
                         if output_file:
