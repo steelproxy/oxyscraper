@@ -72,60 +72,45 @@ def handle_interrupt(sig, frame):
     sys.exit(0)
 
 
-def search_emails(response, output_file):
-    """Search for emails in the response and output to file."""
-    # Set to store unique email addresses
-    unique_emails = set()
+def search_results(pattern, response):
+    """Searches for pattern in response json"""
+    unique_matches = set()
+    for page in response.json()["results"]:
+        for results in page.get("content", {}).get("results", {}).get("organic", {}):
+            matches = re.findall(pattern, str(results.get("desc", {})))
+            for match in matches:
+                # for emails
+                match = match.rstrip(".")
+                if ("postmaster" not in match.lower()) and (
+                    "webmaster" not in match.lower()
+                ):
+                    if match not in unique_matches:
+                        print(
+                            "match found: "
+                            + str(match)
+                            + ", URL: "
+                            + str(results.get("url", {}))
+                        )
+                        # if output_file:
+                        #    output_file.write(str(email) + "," + str(results.get('url', {})) + "\n")
+                        unique_matches.add(
+                            str(match) + "," + str(results.get("url", {}))
+                        )
 
-    for page in response.json()['results']:
-        for results in page.get('content', {}).get('results', {}).get('organic', {}):
-            emails = re.findall(r"[\w.+-]+@[\w-]+\.[\w.-]+", str(results.get('desc', {})))
-            for email in emails:
-                email = email.rstrip(".")
-                if ("postmaster" not in email.lower()) and ("webmaster" not in email.lower()):
-                    if email not in unique_emails:
-                        pprint("Email found: " + str(email) + ", URL: " + str(results.get('url', {})))
-                        if output_file:
-                            output_file.write(str(email) + "," + str(results.get('url', {})) + "\n")
-                        unique_emails.add(email)
-    
-    return len(unique_emails)
-
-def search_phones(response, output_file):
-    """Search for phone numbers in the response and output to file."""
-    unique_phones = set()
-    for page in response.json()['results']:
-        for results in page.get('content', {}).get('results', {}).get('organic', {}):
-            phones = re.findall(
-            r"\b(?:\+\d{1,2}\s?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}\b",
-            str(results.get('desc', {})),)
-            for phone in phones:
-                if phone not in unique_phones:
-                    pprint("Phone found: " + str(phone) + ", URL: " + str(results.get('url', {})))
-                    if output_file:
-                        output_file.write(str(phone) + "," + str(results.get('url', {})) + "\n")
-                    unique_phones.add(phone)
-    return len(unique_phones)
-    
+    return unique_matches
 
 
 def run_scraper(user, password, runs, pages, start, query, phones, output_file, args):
     """Main function to execute the scraper."""
-    global emails_found, phones_found
     print("Starting requests...")
 
-    # Write Header
-    if output_file:
-        if phones == "no":
-            output_file.write("Email, URL\n")
-        else:
-            output_file.write("Phones, URL\n")
+    emails = set()
+    phone_numbers = set()
 
     for run in range(1, runs + 1):
-        if args.verbose:
-            print(
-                f"Running request with query: '{query}', starting page: {start}, run: {run}..."
-            )
+        print(
+            f"Running request with query: '{query}', starting page: {start}, run: {run}..."
+        )
 
         payload = {
             "source": "google_search",
@@ -148,8 +133,9 @@ def run_scraper(user, password, runs, pages, start, query, phones, output_file, 
             json=payload,
         )
 
-        #pprint(str(response.json()))
-        #input("continue")
+        # if args.verbose:
+        #    pprint("response body: \n" + str(response.json()))
+        #    input("continue")
 
         if not response.ok:
             print("ERROR! Bad response received.")
@@ -157,13 +143,52 @@ def run_scraper(user, password, runs, pages, start, query, phones, output_file, 
             sys.exit(1)
 
         if phones != "yes" or phones == "both":
-            emails_found += search_emails(response, output_file)
+            for email in search_results(r"[\w.+-]+@[\w-]+\.[\w.-]+", response):
+                emails.add(email)
         if phones == "yes" or phones == "both":
-                phones_found += search_phones(response, output_file)
+            for phone in search_results(
+                r"\b(?:\+\d{1,2}\s?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}\b",
+                response,
+            ):
+                phone_numbers.add(phone)
 
+        print(
+            "run "
+            + str(run)
+            + " completed. "
+            + str(len(emails))
+            + " emails found so far. "
+            + str(len(phone_numbers))
+            + " phone numbers found so far. "
+        )
         start = int(start) + pages
 
-    print(f"Runs completed. Found {emails_found} emails and {phones_found} phones.")
+    print(
+        f"runs completed. found "
+        + str(len(emails))
+        + " emails and "
+        + str(len(phone_numbers))
+        + " phones."
+    )
+
+    # Write Header
+    if output_file:
+        if phones == "no":
+            output_file.write("Email, URL\n")
+            for email in emails:
+                output_file.write(email + "\n")
+        else:
+            if phones == "yes":
+                output_file.write("Phones, URL\n")
+                for phone_number in phone_numbers:
+                    output_file.write(phone_number + "\n")
+            if phones == "both":
+                output_file.write("Match, URL\n")
+                for email in emails:
+                    output_file.write(email + "\n")
+                for phone_number in phone_numbers:
+                    output_file.write(phone_number + "\n")
+
     if output_file and not output_file.closed:
         print(f"Outputted results to: {output_file.name}")
         output_file.close()
@@ -206,7 +231,7 @@ def main():
     else:
         do_phones = get_user_input("Search for phones (yes/no/both)")
         if not (do_phones == "no" or do_phones == "yes" or do_phones == "both"):
-                do_phones = "no"
+            do_phones = "no"
 
     if args.output != "none":
         output_file_name = args.output or get_user_input(
