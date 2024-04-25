@@ -4,6 +4,7 @@ import signal
 import sys
 import json
 import requests
+import time
 
 SCRIPT_URL = (
     "https://raw.githubusercontent.com/steelproxy/oxyscraper/main/oxylab_scraper.py"
@@ -33,10 +34,12 @@ def parse_arguments():
     )
     parser.add_argument("--user", help="OxyLabs API username", type=str)
     parser.add_argument("--password", help="OxyLabs API password", type=str)
-    parser.add_argument("--runs", help="maximum times to iterate searches", type=int)
-    parser.add_argument(
-        "--pages", help="number of pages to search per iteration", type=int
-    )
+    parser.add_argument("--runs",
+                        help="maximum times to iterate searches",
+                        type=int)
+    parser.add_argument("--pages",
+                        help="number of pages to search per iteration",
+                        type=int)
     parser.add_argument("--start", help="page to start at", type=int)
     parser.add_argument("--query", help="query to search google for", type=str)
     parser.add_argument(
@@ -45,11 +48,11 @@ def parse_arguments():
         type=str,
     )
     parser.add_argument(
-        "--output", help='file to output results to use "none" for no file output'
-    )
-    parser.add_argument(
-        "--verbose", action="store_true", help="if enabled will output more verbosely"
-    )
+        "--output",
+        help='file to output results to use "none" for no file output')
+    parser.add_argument("--verbose",
+                        action="store_true",
+                        help="if enabled will output more verbosely")
     return parser.parse_args()
 
 
@@ -74,54 +77,67 @@ def search_results(pattern, response):
     """Searches for pattern in response json"""
     unique_matches = set()
     for page in response.json()["results"]:
-        for results in page.get("content", {}).get("results", {}).get("organic", {}):
+        for results in page.get("content", {}).get("results",
+                                                   {}).get("organic", {}):
             matches = re.findall(pattern, str(results.get("desc", {})))
             for match in matches:
                 # for emails
                 match = match.rstrip(".")
-                if ("postmaster" not in match.lower()) and (
-                    "webmaster" not in match.lower()
-                ):
+                if ("postmaster"
+                        not in match.lower()) and ("webmaster"
+                                                   not in match.lower()):
                     if match not in unique_matches:
-                        print(
-                            "match found: "
-                            + str(match)
-                            + ", URL: "
-                            + str(results.get("url", {}))
-                        )
-                        # if output_file:
-                        #    output_file.write(str(email) + "," + str(results.get('url', {})) + "\n")
+                        print("match found: " + str(match) + ", URL: " +
+                              str(results.get("url", {})))
                         unique_matches.add(
-                            str(match) + "," + str(results.get("url", {}))
-                        )
+                            str(match) + "," + str(results.get("url", {})))
 
     return unique_matches
 
 
-def run_scraper(user, password, runs, pages, start, query, phones, output_file):
+def run_scraper(user, password, runs, pages, start, query, phones):
     """Main function to execute the scraper."""
+    global output_file
+    
+    start_time = time.time()  # Record start time
     print("Starting requests...")
 
     emails = set()
     phone_numbers = set()
 
     for run in range(1, runs + 1):
+        run_start_time = time.time()  # Record start time
+
         print(
             f"Running request with query: '{query}', starting page: {start}, run: {run}..."
         )
 
         payload = {
-            "source": "google_search",
-            "user_agent_type": "desktop_chrome",
-            "parse": True,
-            "geo_location": "Ohio, United States",
-            "locale": "en-us",
-            "query": query,
-            "start_page": str(start),
-            "pages": str(pages),
+            "source":
+            "google_search",
+            "user_agent_type":
+            "desktop_chrome",
+            "parse":
+            True,
+            "geo_location":
+            "Ohio, United States",
+            "locale":
+            "en-us",
+            "query":
+            query,
+            "start_page":
+            str(start),
+            "pages":
+            str(pages),
             "context": [
-                {"key": "filter", "value": 1},
-                {"key": "results_language", "value": "en"},
+                {
+                    "key": "filter",
+                    "value": 1
+                },
+                {
+                    "key": "results_language",
+                    "value": "en"
+                },
             ],
         }
 
@@ -145,37 +161,25 @@ def run_scraper(user, password, runs, pages, start, query, phones, output_file):
                 emails.add(email)
         if phones == "yes" or phones == "both":
             for phone in search_results(
-                r"\b(?:\+\d{1,2}\s?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}\b",
-                response,
+                    r"\b(?:\+\d{1,2}\s?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}\b",
+                    response,
             ):
                 phone_numbers.add(phone)
 
-        print(
-            "run "
-            + str(run)
-            + " completed. "
-            + str(len(emails))
-            + " emails found so far. "
-            + str(len(phone_numbers))
-            + " phone numbers found so far. "
-        )
+        run_time = time.time() - run_start_time  # Calculate run time
+        print(f"run {run} completed in {run_time:.2f} seconds. "
+              f"{len(emails)} emails found so far. "
+              f"{len(phone_numbers)} phone numbers found so far.")
         start = int(start) + pages
 
     print(
-        f"runs completed. found "
-        + str(len(emails))
-        + " emails and "
-        + str(len(phone_numbers))
-        + " phones."
-    )
+        f"runs completed in {(time.time() - start_time):.2f} seconds. found {str(len(emails))} emails. "
+        f"found  {str(len(phone_numbers))} phone numbers. ")
 
     # Write Header
     if output_file:
-        header = (
-            "Email, URL\n"
-            if phones == "no"
-            else ("Phones, URL\n" if phones == "yes" else "Match, URL\n")
-        )
+        header = ("Email, URL\n" if phones == "no" else
+                  ("Phones, URL\n" if phones == "yes" else "Match, URL\n"))
         output_file.write(header)
         if phones == "no":
             for email in emails:
@@ -217,15 +221,15 @@ def main():
     args = parse_arguments()
     signal.signal(signal.SIGINT, handle_interrupt)
 
-    # update_script_if_available()
+    update_script_if_available()
 
     user = args.user or get_user_input("Enter OxyLabs API username")
     password = args.password or get_user_input("Enter OxyLabs API password")
     runs = args.runs or int(get_user_input("Enter number of runs", default=1))
     pages = args.pages or int(
-        get_user_input("Enter number of pages to search each run", default=1)
-    )
-    start = args.start or int(get_user_input("Enter page to start at", default=1))
+        get_user_input("Enter number of pages to search each run", default=1))
+    start = args.start or int(
+        get_user_input("Enter page to start at", default=1))
     query = args.query or get_user_input("Enter query to search for")
 
     phones_option = args.phones or input("Search for phones (yes/no/both): ")
@@ -233,13 +237,14 @@ def main():
         phones_option = "no"
 
     if args.output != "none":
-        output_file_name = args.output or input("Enter file to output to (optional): ")
+        output_file_name = args.output or input(
+            "Enter file to output to (optional): ")
         output_file = open(output_file_name, "a") if output_file_name else None
         if output_file and output_file.closed:
             print("output file unable to be opened.")
             sys.exit(1)
 
-    run_scraper(user, password, runs, pages, start, query, phones_option, output_file)
+    run_scraper(user, password, runs, pages, start, query, phones_option)
 
 
 if __name__ == "__main__":
