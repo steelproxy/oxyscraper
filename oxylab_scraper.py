@@ -13,14 +13,14 @@ SCRIPT_URL = (
 # Example text for argument parser
 EXAMPLE_TEXT = """example:
  python3 ./oxylab_scraper.py
- python3 ./oxylab_scraper.py --verbose 
- python3 ./oxylab_scraper.py --verbose --output [OUTPUT]
- python3 ./oxylab_scraper.py --verbose --output [OUTPUT] --user [USERNAME] --password [PASSWORD]
- python3 ./oxylab_scraper.py --verbose --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS]
- python3 ./oxylab_scraper.py --verbose --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES]
- python3 ./oxylab_scraper.py --verbose --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES] --start [START]
- python3 ./oxylab_scraper.py --verbose --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES] --start [START] --query [QUERY]
- python3 ./oxylab_scraper.py --verbose --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES] --start [START] --query [QUERY] --phones [YES/NO]
+ python3 ./oxylab_scraper.py 
+ python3 ./oxylab_scraper.py --output [OUTPUT]
+ python3 ./oxylab_scraper.py --output [OUTPUT] --user [USERNAME] --password [PASSWORD]
+ python3 ./oxylab_scraper.py --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS]
+ python3 ./oxylab_scraper.py --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES]
+ python3 ./oxylab_scraper.py --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES] --start [START]
+ python3 ./oxylab_scraper.py --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES] --start [START] --query [QUERY]
+ python3 ./oxylab_scraper.py --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES] --start [START] --query [QUERY] --phones [YES/NO]
  """
 
 
@@ -50,9 +50,6 @@ def parse_arguments():
     parser.add_argument(
         "--output",
         help='file to output results to use "none" for no file output')
-    parser.add_argument("--verbose",
-                        action="store_true",
-                        help="if enabled will output more verbosely")
     return parser.parse_args()
 
 
@@ -146,11 +143,7 @@ def run_scraper(user, password, runs, pages, start, query, phones):
             auth=(user, password),
             json=payload,
         )
-
-        # if args.verbose:
-        #    pprint("response body: \n" + str(response.json()))
-        #    input("continue")
-
+        
         if not response.ok:
             print("ERROR! Bad response received.")
             print(response.text)
