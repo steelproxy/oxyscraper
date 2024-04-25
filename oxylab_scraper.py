@@ -13,7 +13,6 @@ SCRIPT_URL = (
 # Example text for argument parser
 EXAMPLE_TEXT = """example:
  python3 ./oxylab_scraper.py
- python3 ./oxylab_scraper.py 
  python3 ./oxylab_scraper.py --output [OUTPUT]
  python3 ./oxylab_scraper.py --output [OUTPUT] --user [USERNAME] --password [PASSWORD]
  python3 ./oxylab_scraper.py --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS]
