@@ -1,10 +1,9 @@
-import requests
 import argparse
 import re
-from pprint import pprint
 import signal
 import sys
 import json
+import requests
 
 SCRIPT_URL = (
     "https://raw.githubusercontent.com/steelproxy/oxyscraper/main/oxylab_scraper.py"
@@ -22,8 +21,6 @@ EXAMPLE_TEXT = """example:
  python3 ./oxylab_scraper.py --verbose --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES] --start [START] --query [QUERY]
  python3 ./oxylab_scraper.py --verbose --output [OUTPUT] --user [USERNAME] --password [PASSWORD] --runs [RUNS] --pages [PAGES] --start [START] --query [QUERY] --phones [YES/NO]
  """
-
-output_file = None
 
 
 def parse_arguments():
@@ -65,6 +62,7 @@ def get_user_input(prompt, default=None):
 
 def handle_interrupt(sig, frame):
     """Handle SIGINT signal."""
+    global output_file
     print("\nCaught SIGINT, ending search.")
     if output_file and not output_file.closed:
         print(f"Outputted results to: {output_file.name}")
@@ -100,7 +98,7 @@ def search_results(pattern, response):
     return unique_matches
 
 
-def run_scraper(user, password, runs, pages, start, query, phones, output_file, args):
+def run_scraper(user, password, runs, pages, start, query, phones, output_file):
     """Main function to execute the scraper."""
     print("Starting requests...")
 
@@ -173,17 +171,20 @@ def run_scraper(user, password, runs, pages, start, query, phones, output_file, 
 
     # Write Header
     if output_file:
+        header = (
+            "Email, URL\n"
+            if phones == "no"
+            else ("Phones, URL\n" if phones == "yes" else "Match, URL\n")
+        )
+        output_file.write(header)
         if phones == "no":
-            output_file.write("Email, URL\n")
             for email in emails:
                 output_file.write(email + "\n")
         else:
             if phones == "yes":
-                output_file.write("Phones, URL\n")
                 for phone_number in phone_numbers:
                     output_file.write(phone_number + "\n")
             if phones == "both":
-                output_file.write("Match, URL\n")
                 for email in emails:
                     output_file.write(email + "\n")
                 for phone_number in phone_numbers:
@@ -211,11 +212,12 @@ def update_script_if_available():
 
 def main():
     """Main function."""
-    global emails_found, phones_found, args, output_file
+    global output_file
+    output_file = None
     args = parse_arguments()
     signal.signal(signal.SIGINT, handle_interrupt)
 
-    update_script_if_available()
+    # update_script_if_available()
 
     user = args.user or get_user_input("Enter OxyLabs API username")
     password = args.password or get_user_input("Enter OxyLabs API password")
@@ -226,31 +228,18 @@ def main():
     start = args.start or int(get_user_input("Enter page to start at", default=1))
     query = args.query or get_user_input("Enter query to search for")
 
-    if args.phones == "no" or args.phones == "yes" or args.phones == "both":
-        do_phones = args.phones
-    else:
-        do_phones = get_user_input("Search for phones (yes/no/both)")
-        if not (do_phones == "no" or do_phones == "yes" or do_phones == "both"):
-            do_phones = "no"
+    phones_option = args.phones or input("Search for phones (yes/no/both): ")
+    if phones_option not in ["no", "yes", "both"]:
+        phones_option = "no"
 
     if args.output != "none":
-        output_file_name = args.output or get_user_input(
-            "Enter file to output to (optional)", default=None
-        )
-        if output_file_name:
-            try:
-                output_file = open(output_file_name, "a")
-                if output_file.closed:
-                    print("Output file unable to be opened.")
-                    sys.exit(1)
-            except IOError:
-                print("Error opening output file.")
-                sys.exit(1)
+        output_file_name = args.output or input("Enter file to output to (optional): ")
+        output_file = open(output_file_name, "a") if output_file_name else None
+        if output_file and output_file.closed:
+            print("output file unable to be opened.")
+            sys.exit(1)
 
-    emails_found = 0
-    phones_found = 0
-
-    run_scraper(user, password, runs, pages, start, query, do_phones, output_file, args)
+    run_scraper(user, password, runs, pages, start, query, phones_option, output_file)
 
 
 if __name__ == "__main__":
