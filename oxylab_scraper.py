@@ -26,7 +26,13 @@ EXAMPLE_TEXT = """example:
 
 
 def parse_arguments():
-    """Parse command line arguments."""
+    """
+    Parse command line arguments.
+
+    Returns:
+        argparse.Namespace: Parsed arguments.
+    """
+
     parser = argparse.ArgumentParser(
         prog="oxylabs_scraper",
         description="OxyLabs Serp Scraper for Emails",
@@ -55,7 +61,12 @@ def parse_arguments():
 
 
 def get_credentials_from_config():
-    """Read credentials from config file."""
+    """
+    Read credentials from config file.
+
+    Returns:
+        Tuple[str, str]: User and password read from the config file.
+    """
     config = configparser.ConfigParser()
     config.read("credentials.ini")
 
@@ -66,14 +77,34 @@ def get_credentials_from_config():
 
 
 def get_user_input(prompt, default=None):
-    """Get input from user with optional default value."""
+    """
+    Get input from user with optional default value.
+
+    Args:
+        prompt (str): The prompt message to display to the user.
+        default: The default value to use if no input is provided.
+
+    Returns:
+        str: User input or the default value if provided.
+    """
+
     if default is not None:
         return input(f"{prompt} [{default}]: ") or default
     return input(f"{prompt}: ")
 
 
 def handle_interrupt(sig, frame):
-    """Handle SIGINT signal."""
+    """
+    Handle SIGINT signal.
+
+    Args:
+        sig: Signal number.
+        frame: Current stack frame.
+
+    Returns:
+        None
+    """
+
     global output_file
     print("\nCaught SIGINT, ending search.")
     if output_file and not output_file.closed:
@@ -83,7 +114,17 @@ def handle_interrupt(sig, frame):
 
 
 def search_results(pattern, response):
-    """Searches for pattern in response json"""
+    """
+    Searches for pattern in response json.
+
+    Args:
+        pattern (str): The regex pattern to search for.
+        response (requests.Response): The response object containing JSON data.
+
+    Returns:
+        set: Set of unique matches found in the response.
+    """
+
     unique_matches = set()
     for page in response.json()["results"]:
         for results in page.get("content", {}).get("results",
@@ -93,21 +134,33 @@ def search_results(pattern, response):
                 # for emails
                 match = match.rstrip(".")
                 if ("postmaster"
-                        not in match.lower()) and ("webmaster"
-                                                   not in match.lower()):
-                    if match not in unique_matches:
-                        print("match found: " + str(match) + ", URL: " +
-                              str(results.get("url", {})))
-                        unique_matches.add(
-                            str(match) + "," + str(results.get("url", {})))
+                                        not in match.lower()) and ("webmaster"
+                                                                   not in match.lower()) and match not in unique_matches:
+                    print((f"match found: {str(match)}, URL: " + str(results.get("url", {}))))
+                    unique_matches.add(f"{str(match)}," + str(results.get("url", {})))
 
     return unique_matches
 
 
 def run_scraper(user, password, runs, pages, start, query, phones):
-    """Main function to execute the scraper."""
+    """
+    Main function to execute the scraper.
+
+    Args:
+        user (str): OxyLabs API username.
+        password (str): OxyLabs API password.
+        runs (int): Maximum times to iterate searches.
+        pages (int): Number of pages to search per iteration.
+        start (int): Page to start at.
+        query (str): Query to search google for.
+        phones (str): Search for phone numbers instead of emails.
+
+    Returns:
+        None
+    """
+
     global output_file
-    
+
     start_time = time.time()  # Record start time
     print("Starting requests...")
 
@@ -155,16 +208,16 @@ def run_scraper(user, password, runs, pages, start, query, phones):
             auth=(user, password),
             json=payload,
         )
-        
+
         if not response.ok:
             print("ERROR! Bad response received.")
             print(response.text)
             sys.exit(1)
 
-        if phones != "yes" or phones == "both":
+        if phones != "yes":
             for email in search_results(r"[\w.+-]+@[\w-]+\.[\w.-]+", response):
                 emails.add(email)
-        if phones == "yes" or phones == "both":
+        if phones in ["yes", "both"]:
             for phone in search_results(
                     r"\b(?:\+\d{1,2}\s?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}\b",
                     response,
@@ -178,8 +231,8 @@ def run_scraper(user, password, runs, pages, start, query, phones):
         start = int(start) + pages
 
     print(
-        f"runs completed in {(time.time() - start_time):.2f} seconds. found {str(len(emails))} emails. "
-        f"found  {str(len(phone_numbers))} phone numbers. ")
+        f"runs completed in {time.time() - start_time:.2f} seconds. found {len(emails)} emails. found  {len(phone_numbers)} phone numbers. "
+    )
 
     # Write Header
     if output_file:
@@ -205,7 +258,13 @@ def run_scraper(user, password, runs, pages, start, query, phones):
 
 
 def update_script_if_available():
-    """Check for updates and update the script if available."""
+    """
+    Check for updates and update the script if available.
+
+    Returns:
+        None
+    """
+
     print("Checking for updates...")
     response = requests.get(SCRIPT_URL)
     if response.status_code == 200:
@@ -219,7 +278,17 @@ def update_script_if_available():
         print("Failed to check for updates.")
 
 def save_credentials_to_config(user, password):
-    """Save credentials to config file."""
+    """
+    Save credentials to config file.
+
+    Args:
+        user (str): User's username.
+        password (str): User's password.
+
+    Returns:
+        None
+    """
+
     try:
         config = configparser.ConfigParser()
         config["Oxylabs"] = {"username": user, "password": password}
@@ -231,7 +300,13 @@ def save_credentials_to_config(user, password):
         print(f"Error occurred while saving credentials: {str(e)}")
 
 def main():
-    """Main function."""
+    """
+    Main function.
+
+    Returns:
+        None
+    """
+
     global output_file
     output_file = None
     args = parse_arguments()
