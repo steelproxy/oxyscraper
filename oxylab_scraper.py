@@ -1,10 +1,12 @@
 import argparse
+import getpass
 import re
 import signal
 import sys
 import json
 import requests
 import time
+import configparser
 
 SCRIPT_URL = (
     "https://raw.githubusercontent.com/steelproxy/oxyscraper/main/oxylab_scraper.py"
@@ -50,6 +52,17 @@ def parse_arguments():
         "--output",
         help='file to output results to use "none" for no file output')
     return parser.parse_args()
+
+
+def get_credentials_from_config():
+    """Read credentials from config file."""
+    config = configparser.ConfigParser()
+    config.read("credentials.ini")
+
+    user = config.get("Oxylabs", "username", fallback=None)
+    password = config.get("Oxylabs", "password", fallback=None)
+    
+    return user, password,
 
 
 def get_user_input(prompt, default=None):
@@ -205,6 +218,17 @@ def update_script_if_available():
     else:
         print("Failed to check for updates.")
 
+def save_credentials_to_config(user, password):
+    """Save credentials to config file."""
+    try:
+        config = configparser.ConfigParser()
+        config["Oxylabs"] = {"username": user, "password": password}
+        
+        with open("credentials.ini", "w") as configfile:
+            config.write(configfile)
+        print("Credentials saved successfully.")
+    except Exception as e:
+        print(f"Error occurred while saving credentials: {str(e)}")
 
 def main():
     """Main function."""
@@ -215,8 +239,30 @@ def main():
 
     update_script_if_available()
 
-    user = args.user or get_user_input("Enter OxyLabs API username")
-    password = args.password or get_user_input("Enter OxyLabs API password")
+    # Check if credentials are provided via command line arguments
+    if args.user and args.password and args.linkedin_user and args.linkedin_password:
+        user = args.user
+        password = args.password
+    else:
+        # Read credentials from config file
+        user, password, linkedin_user, linkedin_password = get_credentials_from_config()
+
+        # If not found in config, prompt the user for credentials
+        if not (user and password and linkedin_user and linkedin_password):
+            print("Credentials not found in config file. Please enter them manually.")
+            user = input("Enter Oxylabs username: ")
+            password = getpass.getpass("Enter Oxylabs password: ")
+
+            save_credentials = input("Do you want to save these credentials? (yes/no): ")
+            if save_credentials.lower() == "yes":
+                save_credentials_to_config(user, password)
+
+        # If not found in config, prompt the user for credentials
+        if not (user and password):
+            print("Credentials not found in config file. Please enter them manually.")
+            user = input("Enter Oxylabs username: ")
+            password = getpass.getpass("Enter Oxylabs password: ")
+
     runs = args.runs or int(get_user_input("Enter number of runs", default=1))
     pages = args.pages or int(
         get_user_input("Enter number of pages to search each run", default=1))
