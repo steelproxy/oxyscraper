@@ -3,7 +3,6 @@ import getpass
 import re
 import signal
 import sys
-import json
 import requests
 import time
 import configparser
@@ -41,11 +40,11 @@ def parse_arguments():
     )
     parser.add_argument("--user", help="OxyLabs API username", type=str)
     parser.add_argument("--password", help="OxyLabs API password", type=str)
-    parser.add_argument("--runs", help="maximum times to iterate searches", type=int, default=1)
-    parser.add_argument("--pages", help="number of pages to search per iteration", type=int, default=1)
-    parser.add_argument("--start", help="page to start at", type=int, default=1)
+    parser.add_argument("--runs", help="maximum times to iterate searches", type=int,)
+    parser.add_argument("--pages", help="number of pages to search per iteration", type=int)
+    parser.add_argument("--start", help="page to start at", type=int)
     parser.add_argument("--query", help="query to search google for", type=str)
-    parser.add_argument("--phones", help="search for phone numbers instead of emails", type=str, choices=['yes', 'no', 'both'], default='no')
+    parser.add_argument("--phones", help="search for phone numbers instead of emails", type=str, choices=['yes', 'no', 'both'])
     parser.add_argument("--output", help='file to output results to use "none" for no file output', default=None)
     return parser.parse_args()
 
@@ -82,6 +81,8 @@ def get_credentials():
         password = getpass.getpass("Enter Oxylabs password: ")
         if input("Do you want to save these credentials? (yes/no): ").lower() == "yes":
             save_credentials(user, password)
+    else:
+        print("Read credentials from credentials.ini")
     return user, password
 
 
@@ -136,15 +137,12 @@ def search_results(pattern, response):
 
     unique_matches = set()
     for page in response.json()["results"]:
-        for results in page.get("content", {}).get("results",
-                                                   {}).get("organic", {}):
+        for results in page.get("content", {}).get("results",{}).get("organic", {}):
             matches = re.findall(pattern, str(results.get("desc", {})))
             for match in matches:
-                # for emails
-                match = match.rstrip(".")
-                if ("postmaster"
-                                        not in match.lower()) and ("webmaster"
-                                                                   not in match.lower()) and match not in unique_matches:
+                if match not in unique_matches:
+                    # for emails
+                    match = match.rstrip(".")
                     print((f"match found: {str(match)}, URL: " + str(results.get("url", {}))))
                     unique_matches.add(f"{str(match)}," + str(results.get("url", {})))
 
@@ -169,20 +167,14 @@ def run_scraper(user, password, runs, pages, start, query, phones):
     """
 
     global output_file
-
+    emails = set()
+    phone_numbers = set()
     start_time = time.time()  # Record start time
     print("Starting requests...")
 
-    emails = set()
-    phone_numbers = set()
-
     for run in range(1, runs + 1):
         run_start_time = time.time()  # Record start time
-
-        print(
-            f"Running request with query: '{query}', starting page: {start}, run: {run}..."
-        )
-
+        print(f"Running request with query: '{query}', starting page: {start}, run: {run}...")
         payload = {
             "source":
             "google_search",
@@ -224,7 +216,7 @@ def run_scraper(user, password, runs, pages, start, query, phones):
             sys.exit(1)
 
         if phones != "yes":
-            for email in search_results(r"[\w.+-]+@[\w-]+\.[\w.-]+", response):
+            for email in search_results(r'\S+@\S+', response):
                 emails.add(email)
         if phones in ["yes", "both"]:
             for phone in search_results(
@@ -245,8 +237,7 @@ def run_scraper(user, password, runs, pages, start, query, phones):
 
     # Write Header
     if output_file:
-        header = ("Email, URL\n" if phones == "no" else
-                  ("Phones, URL\n" if phones == "yes" else "Match, URL\n"))
+        header = ("Email, URL\n" if phones == "no" else ("Phones, URL\n" if phones == "yes" else "Match, URL\n"))
         output_file.write(header)
         if phones == "no":
             for email in emails:
@@ -315,9 +306,9 @@ def main():
         get_user_input("Enter page to start at", default=1))
     query = args.query or get_user_input("Enter query to search for")
 
-    phones_option = args.phones or input("Search for phones (yes/no/both): ")
+    phones_option = args.phones or input("Search for phones (yes/no/both) [both]: ")
     if phones_option not in ["no", "yes", "both"]:
-        phones_option = "no"
+        phones_option = "both"
 
     if args.output != "none":
         output_file_name = args.output or input(
