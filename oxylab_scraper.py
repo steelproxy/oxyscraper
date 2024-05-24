@@ -140,11 +140,12 @@ def search_results(pattern, response):
         for results in page.get("content", {}).get("results",{}).get("organic", {}):
             matches = re.findall(pattern, str(results.get("desc", {})))
             for match in matches:
+                match = match.rstrip(".")
+                match = f"{str(match)},{str(results.get("url", {}))}"
                 if match not in unique_matches:
                     # for emails
-                    match = match.rstrip(".")
-                    print((f"match found: {str(match)}, URL: " + str(results.get("url", {}))))
-                    unique_matches.add(f"{str(match)}," + str(results.get("url", {})))
+                    print(f"match found: {str(match)}" )
+                    unique_matches.add(match)
 
     return unique_matches
 
@@ -216,7 +217,7 @@ def run_scraper(user, password, runs, pages, start, query, phones):
             sys.exit(1)
 
         if phones != "yes":
-            for email in search_results(r'\S+@\S+', response):
+            for email in search_results(r'([a-zA-Z0-9+._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)', response):
                 emails.add(email)
         if phones in ["yes", "both"]:
             for phone in search_results(
